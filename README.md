@@ -19,8 +19,9 @@ Based on the results of the assignment review, we will make the decision on whet
 
 Your task is to implement the Delivery Order Price Calculator service, or DOPC for short!
 DOPC is an imaginary backend service which is capable of calculating the total price and price breakdown of a delivery order.
-DOPC integrates to Home Assignment API to fetch venue related data required to calculate the prices. 
-Let's not make strict assumptions about the potential clients of DOPC: they could be other backend services, the Wolt's consumer mobile apps, or even some 3rd parties which integrate to Wolt.
+DOPC integrates with the Home Assignment API to fetch venue related data required to calculate the prices.
+The term _venue_ refers to any kind of restaurant / shop / store that's in Wolt.
+Let's not make strict assumptions about the potential clients of DOPC: they might be other backend services, Wolt's consumer mobile apps, or even some third parties which integrate with Wolt.
 
 Here's a simple illustration of the whole system:
 
@@ -49,7 +50,7 @@ sequenceDiagram
 ### Specification
 
 The DOPC service should provide a single endpoint: GET _/api/v1/delivery-order-price_, which takes the following as query parameters (**all are required**):
-* `venue_slug` (string): The _slug_ of the venue name from which the delivery order would be made
+* `venue_slug` (string): The unique identifier (slug) for the venue from which the delivery order will be placed
 * `cart_value`: (integer): The total value of the items in the shopping cart
 * `user_lat` (number with decimal point): The latitude of the user's location
 * `user_lon` (number with decimal point): The longitude of the user's location
@@ -84,13 +85,13 @@ where
 #### Home Assignment API
 
 In order to calculate the values needed for the response, DOPC should request data from _Home Assignment API_ which is another imaginary backend service.
-Fortunately, it's already implement, so you can use it right away!
+Fortunately, it's already implemented, so you can use it right away!
 It provides two JSON endpoints: 
-* Static information of a venue: `https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/<VENUE SLUG>/static`, examples:
+* Static information about a venue: `https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/<VENUE SLUG>/static`, examples:
   * 🇫🇮 https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/home-assignment-venue-helsinki/static
   * 🇸🇪 https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/home-assignment-venue-stockholm/static
   * 🇩🇪 https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/home-assignment-venue-berlin/static
-* Dynamic information of a venue: `https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/<VENUE SLUG>/dynamic`, examples:
+* Dynamic information about a venue: `https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/<VENUE SLUG>/dynamic`, examples:
   * 🇫🇮 https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/home-assignment-venue-helsinki/dynamic
   * 🇸🇪 https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/home-assignment-venue-stockholm/dynamic
   * 🇩🇪 https://consumer-api.development.dev.woltapi.com/home-assignment-api/v1/venues/home-assignment-venue-berlin/dynamic
@@ -146,19 +147,19 @@ Each object inside `distance_ranges` list contains the following:
 * `b`: Multiplier to be used for calculating distance based component of the delivery fee. The formula is `b * distance / 10` and the result should be rounded to the nearest integer value. For example, if the delivery distance is 1000 meters and the value of `b` is 2, we'd add 200 (2 * 1000 / 10) to the delivery fee.
 * `flag`: You can ignore this field
  
-You can assume that the order of objects inside `distance_ranges` is sorted by `min`.
+You can assume that the order of the objects inside `distance_ranges` is sorted by `min`.
 You can also assume that the value for `min` is the same as the value for `max` in the previous object in the list.
 Also, the first object in the list always has `"min": 0` and the last object has `"max": 0`.
 
-For example, given the above `distance_ranges` example, if the delivery delivery distance would be 600 meters and the `base_price` would be 199, the delivery fee would be 359 (base_price + a + b * distance / 10 == 199 + 100 + 1 * 600 / 10 == 359). 
-Another example: if the delivery distance would be 1000 meters or more, the delivery would not be possible.
+For example, given the above `distance_ranges` example, if the delivery distance were 600 meters and the `base_price` were 199, the delivery fee would be 359 (base_price + a + b * distance / 10 == 199 + 100 + 1 * 600 / 10 == 359).
+Another example: if the delivery distance were 1000 meters or more, the delivery would not be possible.
 
 **All the money related information (prices, fees, etc) are in the lowest denomination of the local currency. In euro countries they are in cents, and in Sweden they are in öre.**
 
 #### Building the logic
 
 Here's some guidance for getting the logic and calculations right:
-* `small_order_surcharge` is the difference between `order_minimum_no_surcharge` (got from Home Assignment API) and the cart value. For example, if the cart value is 800 and `order_minimum_no_surcharge` is 1000, then the `small_order_surcharge` is 200. `small_order_surcharge` can't be negative.
+* `small_order_surcharge` is the difference between `order_minimum_no_surcharge` (as received from the Home Assignment API) and the cart value. For example, if the cart value is 800 and `order_minimum_no_surcharge` is 1000, then the `small_order_surcharge` is 200. `small_order_surcharge` can't be negative.
 * Delivery distance is the straight line distance between the user's and venue's locations. Note that it's straight line distance, you don't need to figure out what's the distance via public roads. The exact algorithm doesn't matter as long as it's a decent approximation of a straight line distance.
 * Delivery fee can be calculated with: base_price + a + b * distance / 10. Please read carefully the details above in the "Home Assignment API" section.
 * Total price is the sum of cart value, small order surcharge, and delivery fee.
